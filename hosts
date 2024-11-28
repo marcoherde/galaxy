@@ -1,0 +1,6 @@
+[galaxyservers]
+localhost ansible_connection=local ansible_user=marco
+[dbservers:children]
+galaxyservers
+
+

@@ -30,11 +30,12 @@ try:
 except ImportError:
     from pipes import quote as shlex_quote
 
-import psycopg2
+try:
+    import psycopg2
+except ImportError:
+    psycopg2 = None
 
 
-START_BACKUP_SQL = "SELECT pg_start_backup(%(label)s, false, false)"
-STOP_BACKUP_SQL = "SELECT * FROM pg_stop_backup(false, true)"
 RSYNC_EXCLUDES = (
     'pg_wal/*',  # >= 10
     'pg_xlog/*', # < 10
@@ -87,15 +88,31 @@ class State(object):
         self._cursor = None
         self._label = None
         self._rsync_opts = None
+        self._pg_major_version = None
 
     def set_rsync_opts(self, opts):
         self._rsync_opts = opts
 
     @property
+    def pg_major_version(self):
+        if self._pg_major_version is None:
+            self.cursor.execute('SHOW server_version_num')
+            # server_version_num is an int in the format (major*10000)+minor for > 9.6 or
+            # (major*10000)+(minor*100)+patch for 9.6 and older.
+            version_int = self.cursor.fetchone()[0]
+            try:
+                self._pg_major_version = int(int(version_int) / 10000)
+                log.info("PostgreSQL server major version: %s", self._pg_major_version)
+            except:
+                log.error("Unable to parse PostgreSQL server_version: %s", version_int)
+                raise
+        return self._pg_major_version
+
+    @property
     def rsync_cmd(self):
         cmd = ['rsync']
         if self._rsync_opts:
-            cmd.extend(shlex.split(rsync_opts))
+            cmd.extend(shlex.split(self._rsync_opts))
         return cmd
 
     @property
@@ -133,6 +150,8 @@ def parse_args(argv):
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
     parser.add_argument('backup_path', help='Backup to location (rsync-compatible string)')
     args = parser.parse_args(argv)
+    if args.backup and psycopg2 is None:
+        parser.error('--backup specified but psycopg2 could not be imported')
     if args.clean_archive and ':' in args.backup_path:
         parser.error('--clean-archive cannot be used with remote backup directories')
     return args
@@ -152,7 +171,11 @@ def log_command(cmd):
 
 def initiate_backup():
     log.info("Initiating backup with pg_start_backup()")
-    state.cursor.execute(START_BACKUP_SQL, {'label': state.label})
+    if state.pg_major_version < 15:
+        start_backup_sql = "SELECT pg_start_backup(%(label)s, false, false)"
+    else:
+        start_backup_sql = "SELECT pg_backup_start(%(label)s, false)"
+    state.cursor.execute(start_backup_sql, {'label': state.label})
 
 
 def perform_backup(backup_path, rsync_backup_opts):
@@ -193,7 +216,11 @@ def write_backup_file(backup_path, file_contents, file_name):
 
 def finalize_backup(backup_path):
     log.info("Finalizing backup with pg_stop_backup()")
-    state.cursor.execute(STOP_BACKUP_SQL)
+    if state.pg_major_version < 15:
+        stop_backup_sql = "SELECT * FROM pg_stop_backup(false, true)"
+    else:
+        stop_backup_sql = "SELECT * FROM pg_backup_stop(true)"
+    state.cursor.execute(stop_backup_sql)
     row = state.cursor.fetchone()
     last_segment = row[0]
     backup_label = row[1]

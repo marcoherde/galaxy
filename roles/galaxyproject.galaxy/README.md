@@ -95,118 +95,63 @@ Options below that control individual file or subdirectory placement can still o
 [custom]: vars/layout-custom.yml
 [fhs]: http://www.pathname.com/fhs/
 
-**New options for Galaxy 22.01 and later**
+**Process control with Gravity**
 
-The role can now manage the Galaxy service using [gravity][gravity]. This is the default for Galaxy 22.05 and later.
+The role can manage the Galaxy service using [gravity][gravity]. This is the default for Galaxy 22.05 and later.
 Additionally, support for the `galaxy_restart_handler_name` variable has been removed. If you need to enable your own
-custom restart handler, you can use the "`listen`" option to the handler as explained in the
-[handler documentation](https://docs.ansible.com/ansible/latest/user_guide/playbooks_handlers.html#using-variables-with-handlers).
+custom restart handler, you can use the "`listen`" option to the handler as explained in the [handler
+documentation](https://docs.ansible.com/ansible/latest/user_guide/playbooks_handlers.html#using-variables-with-handlers).
 The handler should "listen" to the topic `"restart galaxy"`.
 
 [gravity]: https://github.com/galaxyproject/gravity
 
-**New options for Galaxy 18.01 and later**
+**Galaxy Themes**
 
-- `galaxy_config_style` (default: `yaml`): The type of Galaxy configuration file to write, `yaml` for the YAML format supported by uWSGI or `ini-paste` for the traditional PasteDeploy-style INI file
-- `galaxy_app_config_section` (default: depends on `galaxy_config_style`): The config file section under which the
-  Galaxy config should be placed (and the key in `galaxy_config` in which the Galaxy config can be found. If
-  `galaxy_config_style` is `yaml` the default is `galaxy`. If `galaxy_config_style` is `ini-paste`, the default is `app:main`.
-- `galaxy_uwsgi_yaml_parser` (default: `internal`): Controls whether the `uwsgi` section of the Galaxy config file will
-  be written in uWSGI-style YAML or real YAML. By default, uWSGI's internal YAML parser does not support real YAML. Set
-  to `libyaml` to write real YAML, if you are using uWSGI that has been compiled with libyaml. see **YAML Syntax** below
-  and [unbit/uwsgi#863][uwsgi-863] for details.
+From release 22.01, Galaxy users can select between different UI [themes][themes]. You can define themes using the
+`galaxy_themes` variable, the syntax of which is the same as the `themes_conf.yml` file described [in the themes
+training][themes].
 
-**YAML Syntax**
+The `galaxy_manage_themes` variable controls whether the role manages theme configs and is automatically enabled if
+`galaxy_themes` is defined. If you just want to load the the sample themes from Galaxy's
+[themes_conf.yml.sample][themes_conf_sample] without defining your own, you can manually set `galaxy_manage_themes` to
+`true`.
 
-To override the default uWSGI configuration, place your uWSGI options under the `uwsgi` key in the `galaxy_config`
-dictionary explained below. Note that the defaults are not merged with your config, so you should fully define the
-`uwsgi` section if you choose to set it.
+[themes]: https://training.galaxyproject.org/training-material/topics/admin/tutorials/customization/tutorial.html
+[themes_conf_sample]: https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/config/sample/themes_conf.yml.sample
 
-uWSGI's internal YAML parser expects YAML in an non-standards-conforming syntax:
+**Galaxy Subdomains**
 
-- Quotes are not supported: all values are read as strings
-- Multiple overlapping keys are used to specify multiple instances of an option
-- Despite appearing to be a YAML dictionary, the order of the dictionary keys in the config is preserved
+From release 22.01 Galaxy can serve different static content and themes per host (e.g. subdomain).
 
-Note that **regardless of which `galaxy_uwsgi_yaml_parser` you use, `galaxy_config.uwsgi` should be written in real
-YAML** because Ansible parses it with libyaml, which does not support the uWSGI internal parser's invalid syntax. This
-role will automatically convert the proper YAML to uWSGI-style YAML as necessary.
+By setting `galaxy_manage_subdomain_static: yes` you enable the creation of static directories and configuration per host.
 
-In order to specify repeititve uWSGI options, the value of the option should be a list. For example, multiple mules for
-Galaxy handlers are specified like so:
+In order to use this feature, you need to create the following directory structure under files/ (customizable with the `galaxy_themes_ansible_file_path` variable):
 
-```yaml
-galaxy_config:
-  uwsgi:
-    # a few example options
-    socket: 127.0.0.1:4001
-    master: true
-    # define mules
-    mule:
-      - lib/galaxy/main.py
-      - lib/galaxy/main.py
-    farm: job-handlers:1,2
-```
+~~~bash
+files/galaxy/static
+├──<subdomain-name-1>
+│   └── static
+│       ├── dist (optional)
+│       │   └── some-image.png
+│       ├── images (optional)
+│       │   └── more-content.jpg
+│       └── welcome.html (optional, galaxyproject.org will be displayed otherwise.)
+├── <subdomain-name-2>                            
+│   └── static
+│       ├── dist (optional)
+│       │   ├── another-static-image.svg
+│       │   └── more-static-content-2.svg
+│       └── welcome.html (optional)
+... (and many more subdomains)
+~~~
 
-This role will convert the above to the proper uWSGI-style representation in `galaxy.yml`:
+Where the <subdomain-name-1> should exactly match your subdomain's name. The subdirectory `static` is mandatory, while all subdirectories in `static` are optional. Which subdirectories and files are copied is managed by the `static_galaxy_themes_keys` variable.
 
-```yaml
-uwsgi:
-    farm: job-handlers:1,2
-    master: true
-    mule: lib/galaxy/main.py
-    mule: lib/galaxy/main.py
-    socket: 127.0.0.1:4001
-```
+Also make sure that you set `galaxy_themes_welcome_url_prefix`, so your welcome pages are templated correctly.
 
-The value of `galaxy_config.uwsgi` can be either a hash (dictionary) of option/value pairs, or a list of one-item
-option/value hashes. In the former case, the options will be written to galaxy.yml in sorted order, since hashes do not
-maintain order. In the latter case, order is preserved, and allows for use of uWSGI's [configuration
-logic][uwsgi-config-logic], for which the order matters.
+It is mandatory to set the variables under `galaxy_themes_subdomains` as shown in the example in [defaults/main.yml](defaults/main.yml). If you enabled the `galaxy_manage_host_filters` variable, you can also specify the tool sections that should be shown for each individual subdomain.
 
-When specifying control logic such as `if-*` and `for`, the value of the option is a list where:
-
-- The first list member is the conditional
-- The remaining list members are the option/values in the control block
-- Do not specify the closing `endif` or `endfor`, the role will do this for you
-
-For example, to use `if-exists` as is commonly done for uWSGI Zerg Mode, use:
-
-```yaml
-galaxy_config:
-  uwsgi:
-    # a few example options
-    - socket: 127.0.0.1:4001
-    - master: true
-    # define master FIFOs
-    - master-fifo:
-      - /srv/galaxy/var/zerg-new.fifo
-      - /srv/galaxy/var/zerg-run.fifo
-      - /srv/galaxy/var/zerg-old.fifo
-    # control block
-    - if-exists:
-      - /srv/galaxy/var/zerg-run.fifo
-      - hook-accepting1-once: writefifo:/srv/galaxy/var/zerg-run.fifo 2q
-    - hook-accepting1-once: writefifo:/srv/galaxy/var/zerg-new.fifo 1
-```
-
-The role converts this to the following `galaxy.yml` contents:
-
-```yaml
-uwsgi:
-    socket: 127.0.0.1:4001
-    master: true
-    master-fifo: /srv/galaxy/var/zerg-new.fifo
-    master-fifo: /srv/galaxy/var/zerg-run.fifo
-    master-fifo: /srv/galaxy/var/zerg-old.fifo
-    if-exists: /srv/galaxy/var/zerg-run.fifo
-    hook-accepting1-once: writefifo:/srv/galaxy/var/zerg-run.fifo 2q
-    endif: null
-    hook-accepting1-once: spinningfifo:/srv/galaxy/var/zerg-new.fifo 1
-```
-
-[uwsgi-863]: https://github.com/unbit/uwsgi/issues/863
-[uwsgi-config-logic]: https://uwsgi-docs.readthedocs.io/en/latest/ConfigLogic.html
+Each subdomain can be given its own theme, which is defined under the `theme` key of the subdomain's entry in `galaxy_themes_subdomains`. This theme will be the default for the subdomain, and any other themes defined globally for the server will also be available for the user to select. If a subdomain's `theme` is not defined, the global default is used. An example is provided in [defaults/main.yml](defaults/main.yml).
 
 **Feature control**
 
@@ -254,7 +199,9 @@ Options for configuring Galaxy and controlling which version is installed.
 - `galaxy_config_files`: List of hashes (with `src` and `dest` keys) of files to copy from the control machine. For example, to set job destinations, you can use the `galaxy_config_dir` variable followed by the file name as the `dest`, e.g. `dest: "{{ galaxy_config_dir }}/job_conf.xml"`. Make sure to add the appropriate setup within `galaxy_config` for each file added here (so, if adding `job_conf.xml` make sure that `galaxy_config.galaxy.job_config_file` points to that file).
 - `galaxy_config_templates`: List of hashes (with `src` and `dest` keys) of templates to fill from the control machine.
 - `galaxy_local_tools`: List of local tool files or directories to copy from the control machine, relative to
-  `galaxy_local_tools_src_dir` (default: `files/galaxy/tools` in the playbook).
+  `galaxy_local_tools_src_dir` (default: `files/galaxy/tools` in the playbook). List items can either be a tool
+  filename, or a dictionary with keys `file`, `section_name`, and, optionally, `section_id`. If no `section_name` is
+  specified, tools will be placed in a section named **Local Tools**.
 - `galaxy_local_tools_dir`: Directory on the Galaxy server where local tools will be installed.
 - `galaxy_dynamic_job_rules`: List of dynamic job rules to copy from the control machine, relative to
   `galaxy_dynamic_job_rules_src_dir` (default: `files/galaxy/dynamic_job_rules` in the playbook).
@@ -411,7 +358,7 @@ Install Galaxy as per the current production server best practices:
 - PostgreSQL is used as the backing database
 - The 18.01+ style YAML configuration is used
 - Two [job handler mules][deployment-options] are started
-- When the Galaxy code or configs are updated by Ansible, Galaxy will be restarted using `supervisorctl`
+- When the Galaxy code or configs are updated by Ansible, Galaxy will be restarted using `galaxyctl` or `systemctl restart galaxy-*`
 
 [deployment-options]: https://docs.galaxyproject.org/en/master/admin/scaling.html#deployment-options
 
@@ -421,10 +368,12 @@ Install Galaxy as per the current production server best practices:
     galaxy_config_style: yaml
     galaxy_layout: root-dir
     galaxy_root: /srv/galaxy
-    galaxy_commit_id: release_19.09
+    galaxy_commit_id: release_23.0
     galaxy_separate_privileges: yes
+    galaxy_force_checkout: true
     galaxy_create_user: yes
     galaxy_manage_paths: yes
+    galaxy_manage_systemd: yes
     galaxy_user: galaxy
     galaxy_privsep_user: gxpriv
     galaxy_group: galaxy
@@ -435,36 +384,54 @@ Install Galaxy as per the current production server best practices:
       - name: galaxy
         owner: galaxy
     galaxy_config:
-      uwsgi:
-        socket: 127.0.0.1:4001
-        buffer-size: 16384
-        processes: 1
-        threads: 4
-        offload-threads: 2
-        static-map:
-          - /static/style={{ galaxy_server_dir }}/static/style/blue
-          - /static={{ galaxy_server_dir }}/static
-        master: true
+      gravity:
+        process_manager: systemd
+        galaxy_root: "{{ galaxy_root }}/server"
+        galaxy_user: "{{ galaxy_user_name }}"
         virtualenv: "{{ galaxy_venv_dir }}"
-        pythonpath: "{{ galaxy_server_dir }}/lib"
-        module: galaxy.webapps.galaxy.buildapp:uwsgi_app()
-        thunder-lock: true
-        die-on-term: true
-        hook-master-start:
-          - unix_signal:2 gracefully_kill_them_all
-          - unix_signal:15 gracefully_kill_them_all
-        py-call-osafterfork: true
-        enable-threads: true
-        mule:
-          - lib/galaxy/main.py
-          - lib/galaxy/main.py
-        farm: job-handlers:1,2
+        gunicorn:
+          # listening options
+          bind: "unix:{{ galaxy_mutable_config_dir }}/gunicorn.sock"
+          # performance options
+          workers: 2
+          # Other options that will be passed to gunicorn
+          # This permits setting of 'secure' headers like REMOTE_USER (and friends)
+          # https://docs.gunicorn.org/en/stable/settings.html#forwarded-allow-ips
+          extra_args: '--forwarded-allow-ips="*"'
+          # This lets Gunicorn start Galaxy completely before forking which is faster.
+          # https://docs.gunicorn.org/en/stable/settings.html#preload-app
+          preload: true
+        celery:
+          concurrency: 2
+          enable_beat: true
+          enable: true
+          queues: celery,galaxy.internal,galaxy.external
+          pool: threads
+          memory_limit: 2
+          loglevel: DEBUG
+        handlers:
+          handler:
+            processes: 2
+            pools:
+              - job-handlers
+              - workflow-schedulers
       galaxy:
         database_connection: "postgresql:///galaxy?host=/var/run/postgresql"
   pre_tasks:
     - name: Install Dependencies
       apt:
-        name: ['git', 'python-psycopg2', 'python-virtualenv']
+        name:
+          - sudo
+          - git
+          - make
+          - python3-venv
+          - python3-setuptools
+          - python3-dev
+          - python3-psycopg2
+          - gcc
+          - acl
+          - gnutls-bin
+          - libmagic-dev
       become: yes
   roles:
     # Install with:
@@ -473,16 +440,10 @@ Install Galaxy as per the current production server best practices:
       become: yes
     # Install with:
     #   % ansible-galaxy install natefoo.postgresql_objects
-    - role: natefoo.postgresql_objects
+    - role: galaxyproject.postgresql_objects
       become: yes
       become_user: postgres
     - role: galaxyproject.galaxy
-  handlers:
-    - name: Restart Galaxy
-      supervisorctl:
-        name: galaxy
-        state: restarted
-      listen: restart galaxy
 ```
 
 License
@@ -503,3 +464,4 @@ This role was written and contributed to by the following people:
 - [John Chilton](https://github.com/jmchilton)
 - [Nate Coraor](https://github.com/natefoo)
 - [Helena Rasche](https://github.com/hexylena)
+- [Mira Kuntz](https://github.com/mira-miracoli)

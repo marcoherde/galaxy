@@ -23,6 +23,10 @@ galaxy_manage_gravity: "{{ false if __galaxy_major_version is version('22.05', '
 galaxy_manage_systemd: no # For Galaxy
 galaxy_manage_systemd_reports: no # For Reports
 galaxy_manage_cleanup: no
+galaxy_manage_themes: "{{ galaxy_manage_static_setup and (galaxy_themes is defined or galaxy_themes_subdomains) }}"
+galaxy_manage_subdomain_static: no
+galaxy_manage_host_filters: no
+galaxy_auto_brand: no # automatically sets the subdomain name as brand
 
 
 # Control whether to output verbose task diffs (e.g. when performing a git update) when running Ansible with --diff.
@@ -188,7 +192,7 @@ _galaxy_tmpclean_command:
 
 galaxy_tmpclean_verbose_statement: "{{ galaxy_tmpclean_verbose | ternary(' -v', '') }}"
 galaxy_tmpclean_log_statement: >-
-  {{ (galaxy_tmpclean_log is not true) | ternary(
+  {{ (galaxy_tmpclean_log != true) | ternary(
       ((galaxy_tmpclean_log is none) | ternary(
           '>/dev/null',
           '>>' ~ galaxy_tmpclean_log
@@ -267,6 +271,7 @@ galaxy_app_config_default:
   ucsc_build_sites: "{{ galaxy_server_dir }}/tool-data/shared/ucsc/ucsc_build_sites.txt.sample"
   tool_data_table_config_path: "{{ galaxy_server_dir }}/config/tool_data_table_conf.xml.sample"
   tool_sheds_config_file: "{{ galaxy_server_dir }}/config/tool_sheds_conf.xml.sample"
+  themes_config_file: "{{ galaxy_config_dir }}/themes_conf.yml"
 
   # Various cache and temporary directories
   data_dir: "{{ galaxy_mutable_data_dir }}"
@@ -295,6 +300,66 @@ galaxy_app_config_default:
   # Everything else
   visualization_plugins_directory: "config/plugins/visualizations"
 
+  # Static and themes configuration, will only be added if galaxy_manage_themes
+  static_enabled: "{{ galaxy_manage_subdomain_static }}"
+  static_dir_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}/',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}/',
+    {% endfor %}
+    {% endif %} }
+  static_images_dir_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}/images',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}/images',
+    {% endfor %}
+    {% endif %} }
+  static_welcome_html_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}/welcome.html',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}/welcome.html',
+    {% endfor %}
+    {% endif %} }
+  static_scripts_dir_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}/scripts',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}/scripts',
+    {% endfor %}
+    {% endif %} }
+  static_favicon_dir_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}',
+    {% endfor %}
+    {% endif %} }
+  static_robots_txt_by_host: >
+    { {% if galaxy_manage_subdomain_static %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_static_dir }}',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name }}.{{ galaxy_themes_instance_domain}}': '{{ galaxy_themes_static_path }}/static-{{ subdomain.name }}',
+    {% endfor %}
+    {% endif %} }
+  themes_config_file_by_host: >
+    { {% if galaxy_manage_themes and galaxy_themes_subdomains %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_config.galaxy.themes_config_file | default((galaxy_config_dir, "themes_conf.yml") | path_join) }}',
+    {% for subdomain in galaxy_themes_subdomains %}
+    {% if subdomain.theme is defined %}
+    '{{ subdomain.name  }}.{{ galaxy_themes_instance_domain}}': 'themes_conf-{{ subdomain.name }}.yml',
+    {% endif %}
+    {% endfor %}
+    {% endif %} }
+  brand_by_host: >
+    { {% if galaxy_auto_brand %}
+    '{{ galaxy_themes_instance_domain }}': '{{ galaxy_themes_instance_domain }}',
+    {% for subdomain in galaxy_themes_subdomains %}
+    '{{ subdomain.name  }}.{{ galaxy_themes_instance_domain}}': '{{ subdomain.name[0]|upper }}{{ subdomain.name[1:] }}',
+    {% endfor %}
+    {% endif %} }
 # Need to set galaxy_config_default[galaxy_app_config_section] dynamically but Ansible/Jinja2 does not make this easy
 galaxy_config_default: "{{ {} | combine({galaxy_app_config_section: galaxy_app_config_default}) }}"
 galaxy_config_merged: "{{ galaxy_config_default | combine(galaxy_config | default({}), recursive=True) }}"
@@ -363,9 +428,18 @@ galaxy_uwsgi_config_default:
 # Client build settings
 #
 
+
+# If this is set to true, instead of building the client from source, a prebuilt version of the client will be installed from NPM.
+# This mimics the behavior of the GALAXY_INSTALL_PREBUILT_CLIENT=1 setting when running Galaxy with run.sh.
+# When setting this to true, none of the other client settings below will be used.
+galaxy_client_use_prebuilt: false
+
 # Options include: client / client-production / client-production-maps (default). Set to null to invoke each step of the
 # build separately, but this is not guaranteed to work for all version of Galaxy - using `make` is the safer choice.
 galaxy_client_make_target: client-production-maps
+
+# Build the client even if it is not out of date
+galaxy_client_force_build: false
 
 # If galaxy_client_make_target is null, you can set this to `development` to build the client for development
 galaxy_client_node_env: production
@@ -392,6 +466,7 @@ galaxy_node_version_max: >-
 __galaxy_gravity_pm: "{{ (galaxy_config_merged.gravity | default({})).process_manager | default('supervisor') }}"
 __galaxy_gravity_instance_name: "{{ (galaxy_config_merged.gravity | default({})).instance_name | default(none) }}"
 galaxy_gravity_wrapper_path: "/usr/local/bin/galaxyctl{{ __galaxy_gravity_instance_name | ternary('-' ~ __galaxy_gravity_instance_name, '') }}"
+galaxy_gravity_command: "{{ galaxy_venv_dir }}/bin/galaxyctl"
 
 # Currently `mule` (aka uWSGI) and `gravity` (runs Galaxy 22.01+ under gunicorn) are supported
 galaxy_systemd_mode: "{{ 'mule' if __galaxy_major_version is version('22.05', '<') else 'gravity' }}"
@@ -425,3 +500,78 @@ galaxy_systemd_env: []
 
 # A list of additional python packages to install into galaxy's virtual environment
 galaxy_additional_venv_packages: []
+
+# galaxy themes variables
+galaxy_themes_subdomains: []
+# - name: assembly
+#   tool_sections:
+#     - "hicexplorer"
+#     - "graph_display_data"
+#     - "peak_calling"
+#     - "assembly"
+#     - "annotation"
+#     - "genome_diversity"
+#     - "multiple_alignments"
+#   extra_tool_labels:
+#     - "proteomics"
+#   # default theme (optional)
+#   theme:
+#     assembly:
+#       masthead:
+#         color: >
+#           bottom -90px left / 1000px no-repeat url("/static/dist/flying-bird-1.svg"),
+#           bottom -90px left / 1000px no-repeat url("/static/dist/flying-bird-2.svg"),
+#           linear-gradient( 20deg,
+#             rgb(7, 40, 98) 0%,
+#             rgb(69, 122, 184) 48%,
+#             rgba(165, 204, 210, 0.9676562309265136) 74%,
+#             rgb(228, 195, 131) 92%,
+#             rgb(203, 119, 79) 100%)
+galaxy_themes_static_keys:
+  static_dir: ""
+  static_images_dir: "images/"
+  static_scripts_dir: "scripts/"
+  static_welcome_html: "welcome.html/"
+  static_favicon_dir: "favicon.ico"
+  static_robots_txt: "robots.txt"
+galaxy_themes_static_path: "{{ galaxy_root }}/server"
+galaxy_themes_static_dir: "{{ galaxy_root }}/server/static"
+galaxy_themes_symlinks: true
+galaxy_themes_symlinks_no_log: false # Hides extended logs for the symlink task in static/dist
+galaxy_themes_welcome_url_prefix: https://usegalaxy-eu.github.io/index-
+galaxy_themes_default_welcome: https://galaxyproject.org
+galaxy_themes_ansible_file_path: files/galaxy/static
+galaxy_themes_instance_domain: usegalaxy.eu
+galaxy_themes_global_host_filters_path: "{{ galaxy_root }}/server/lib/galaxy/tool_util/toolbox/filters/global_host_filters.py"
+galaxy_themes_tool_base_labels:
+  - "file_and_meta_tools"
+  - "general_text_tools"
+  - "genomic_file_manipulation"
+  - "gff"
+  - "common_genomics"
+galaxy_themes_tool_ngs_labels:
+  - "specific_genomics"
+  - "genomics_toolkits"
+
+# These sections will be displayed in the tool panel for every subdomain
+galaxy_themes_tool_base_sections:
+  - "getext"
+  - "send"
+  - "collection_operations"
+  - "textutil"
+  - "convert"
+  - "filter"
+  - "group"
+  - "expression_tools"
+
+# There sections are a collection of general NGS tools and will be used in most but not all subdomains
+galaxy_themes_tool_ngs_sections:
+  - "deeptools"
+  - "bed"
+  - "sambam"
+  - "bxops"
+  - "fastafastq"
+  - "fastq_quality_control"
+  - "picard"
+  - "mapping"
+  - "sambam"
