@@ -1,8 +1,9 @@
-galaxy_client_make_target: client # in einer anderen Alternative kann dieser Wert auf Null (das Wort ohne Anführungszeichen) gesetzt werden ohne diese Einstellung kein Web
-galaxy_client_node_env: production # in einer anderen Alternative kann dieser Wert auf development (das Wort ohne Anführungszeichen) gesetzt werden ohne diese Einstellung kein Web
-# galaxy_client_force_build: true    damit könnte der Client neu gebaut werden, wenn das Web nicht funktioniert, sonst wird dieser Task uebersprungen
-# Galaxy
+# alle Default Konfigurationen kann man unter /galaxy/roles/galaxyproject.galaxy/defaults/main.yml eingesehen werden, das hilft Veraenderungen zu machen bzw. zu sehen was passiert wenn man nichts konfiguriert 
+galaxy_client_make_target: client-production-maps # in einer anderen Alternative kann dieser Wert auf Null (das Wort ohne Anführungszeichen) gesetzt werden
+galaxy_client_node_env: production # in einer anderen Alternative kann dieser Wert auf development (das Wort ohne Anführungszeichen) gesetzt werden
+# galaxy_client_force_build: true    # damit könnte der Client neu gebaut werden, wenn das Web nicht funktioniert, sonst wird dieser Task uebersprungen
 
+# Galaxy
 galaxy_create_user: true # False by default, as e.g. you might have a 'galaxy' user provided by LDAP or AD.
 galaxy_separate_privileges: true # Best practices for security, configuration is owned by 'root' (or a different user) than the processes
 galaxy_manage_paths: true # False by default as your administrator might e.g. have root_squash enabled on NFS. Here we can create the directories so it's fine.
@@ -14,9 +15,6 @@ galaxy_force_checkout: true
 miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
 miniconda_version: 24.9.2
 miniconda_channels: ['conda-forge', 'defaults']
-
-#id_secret: "{{ vault_id_secret }}"
-#static_enabled: true
 
 galaxy_job_config:
   runners:
