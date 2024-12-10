@@ -7,5 +7,7 @@
   version: 1.2.0
 - src: galaxyproject.miniconda
   version: 0.3.1
-  
+# gxadmin (used in cleanup, and later monitoring.)
+- src: galaxyproject.gxadmin
+  version: 0.0.13
 

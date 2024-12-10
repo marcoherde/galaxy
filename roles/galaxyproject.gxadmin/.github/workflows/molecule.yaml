@@ -1,0 +1,32 @@
+---
+name: Ansible Molecule
+
+"on":
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  molecule:
+    name: Molecule
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v4
+
+      - name: Setup Python.
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: .github/workflows/molecule-requirements.txt
+
+      - name: Install Ansible Molecule.
+        run: pip install --user -r .github/workflows/molecule-requirements.txt
+
+      - name: Run Ansible Molecule.
+        run: |
+          molecule --base-config molecule/base.yml test
+        env:
+          ANSIBLE_FORCE_COLOR: '1'

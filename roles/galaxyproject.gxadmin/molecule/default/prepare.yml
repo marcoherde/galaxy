@@ -1,0 +1,20 @@
+---
+- name: Prepare
+  hosts: all
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Update apt cache (Debian derivatives).
+      become: true
+      ansible.builtin.apt:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure role and gxadmin dependencies are installed.
+      become: true
+      ansible.builtin.package:
+        name:
+          - git
+          - make
+          - "postgresql{{ '-client' if ansible_os_family == 'Debian' }}"
+        state: present

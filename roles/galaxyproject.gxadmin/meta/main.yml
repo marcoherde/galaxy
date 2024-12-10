@@ -1,0 +1,20 @@
+galaxy_info:
+  role_name: gxadmin
+  namespace: galaxyproject
+  author: Helena Rasche
+  description: Install and configure gxadmin
+  company: Galaxy Project Europe
+  issue_tracker_url: https://github.com/galaxyproject/gxadmin/issues
+  license: GPLv3
+  min_ansible_version: "2.4"
+  platforms:
+    - name: EL
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+
+  galaxy_tags:
+    - system
+dependencies: []
