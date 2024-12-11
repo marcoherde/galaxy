@@ -73,8 +73,18 @@ galaxy_config:
     # Tool security
     outputs_to_working_directory: true
     new_user_dataset_access_role_default_private: true # Make datasets private by default
-    user_library_import_dir: /import
+    # fuer Library Funktionalität
+    library_import_dir: /libraries/admin
+    user_library_import_dir: /libraries/user 
     user_library_import_dir_auto_creation: true
+    # vom alten Server übernommen
+    debug: false
+    log_level: DEBUG
+    tool_enable_ngram_search: true  #erlaubt mismatches in der Tool suche
+    upload_from_form_button: true  # tested
+    allow_user_dataset_purge: true
+    show_user_prepopulate_form: true
+    preserve_python_environment: legacy_and_local
        
   gravity:
     app_server: gunicorn
@@ -85,9 +95,9 @@ galaxy_config:
     gunicorn:
       enable: true
       # listening options
-      bind: "130.75.197.65:8080"
+      bind: "130.75.197.65:8080" # das muss entsprechend umgestellt werden der grosse Server hat 130.75.197.106:8080
       # performance options
-      workers: 2
+      workers: 2     # muss beim grossen Server auf 12 gestellt werden
       # Other options that will be passed to gunicorn
       # This permits setting of 'secure' headers like REMOTE_USER (and friends)
       # https://docs.gunicorn.org/en/stable/settings.html#forwarded-allow-ips
@@ -109,7 +119,8 @@ galaxy_config:
    
 galaxy_extra_dirs:
   - /data
-  - /import
+  - /libraries/admin            # ohne dass diese Folder gemacht werden startet der Web service nicht im tutorial nicht erwaehnt
+  - /libraries/user             # ohne dass diese Folder gemacht werden startet der Web service nicht im tutorial nicht erwaehnt
   
 galaxy_config_files_public:
   - src: files/galaxy/welcome.html
