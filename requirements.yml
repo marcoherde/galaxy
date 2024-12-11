@@ -10,4 +10,7 @@
 # gxadmin (used in cleanup, and later monitoring.)
 - src: galaxyproject.gxadmin
   version: 0.0.13
+# automatic tool installation
+- src: galaxyproject.galaxy-tools
+  version: v0.3.0
 
