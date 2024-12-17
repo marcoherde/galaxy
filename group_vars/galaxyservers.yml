@@ -14,7 +14,7 @@ galaxy_commit_id: release_24.1
 galaxy_force_checkout: true
 miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
 miniconda_version: 24.9.2
-miniconda_channels: ['conda-forge', 'defaults']
+miniconda_channels: ['conda-forge','bioconda','defaults']
 
 galaxy_job_config:
   runners:
