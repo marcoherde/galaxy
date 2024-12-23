@@ -24,11 +24,26 @@ galaxy_job_config:
   handling:
     assign: ['db-skip-locked']
   execution:
-    default: local_env
+    #default: local_env   # wurde deaktiviert für Benutzung von Apptainer
+    default: singularity  # wurde aktiviert für apptainer
     environments:
       local_env:
         runner: local_runner
         tmp_dir: true
+      singularity:         #diese einstellungen bis 45 sind fuer Apptainer
+        runner: local_runner
+        singularity_enabled: true
+        env:
+        # Ensuring a consistent collation environment is good for reproducibility.
+        - name: LC_ALL
+          value: C
+        # The cache directory holds the docker containers that get converted
+        - name: APPTAINER_CACHEDIR
+          value: /tmp/singularity
+        # Apptainer uses a temporary directory to build the squashfs filesystem
+        - name: APPTAINER_TMPDIR
+          value: /tmp
+
   tools:
     - class: local # these special tools that aren't parameterized for remote execution - expression tools, upload, etc
       environment: local_env
@@ -77,6 +92,9 @@ galaxy_config:
     library_import_dir: /libraries/admin
     user_library_import_dir: /libraries/user 
     user_library_import_dir_auto_creation: true
+    # Tool Dependencies
+    dependency_resolvers_config_file: "{{ galaxy_config_dir }}/dependency_resolvers_conf.xml"
+    container_resolvers_config_file: "{{ galaxy_config_dir }}/container_resolvers_conf.yml"
     # vom alten Server übernommen
     debug: false
     log_level: DEBUG
@@ -117,6 +135,12 @@ galaxy_config:
           - job-handlers
           - workflow-schedulers
    
+galaxy_config_templates:
+  - src: templates/galaxy/config/container_resolvers_conf.yml.j2
+    dest: "{{ galaxy_config.galaxy.container_resolvers_config_file }}"
+  - src: templates/galaxy/config/dependency_resolvers_conf.xml
+    dest: "{{ galaxy_config.galaxy.dependency_resolvers_config_file }}"
+
 galaxy_extra_dirs:
   - /data
   - /libraries/admin            # ohne dass diese Folder gemacht werden startet der Web service nicht im tutorial nicht erwaehnt

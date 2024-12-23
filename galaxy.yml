@@ -27,6 +27,10 @@
       package:
         name: ['acl', 'bzip2', 'git', 'make', 'tar', 'python3-venv', 'python3-setuptools']
   roles:
+    #- usegalaxy_eu.apptainer # Rolle funktioniert derzeit nicht weil ansible update probleme mit dem Release File hat apptainer muss manuell installiert werden siehe untern
+       # sudo add-apt-repository -y ppa:apptainer/ppa
+       # sudo apt update
+       # sudo apt install -y apptainer
     - galaxyproject.galaxy
     - role: galaxyproject.miniconda
       become: true

@@ -13,4 +13,7 @@
 # automatic tool installation
 - src: galaxyproject.galaxy-tools
   version: v0.3.0
+# Singularity/Apptainer
+- src: usegalaxy_eu.apptainer
+  version: 0.0.1
 
