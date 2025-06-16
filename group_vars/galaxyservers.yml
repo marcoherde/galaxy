@@ -10,7 +10,7 @@ galaxy_manage_paths: true # False by default as your administrator might e.g. ha
 galaxy_layout: root-dir
 galaxy_root: /srv/galaxy
 galaxy_user: {name: "{{ galaxy_user_name }}", shell: /bin/bash}
-galaxy_commit_id: release_24.2
+galaxy_commit_id: release_25.0
 galaxy_force_checkout: true
 miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
 miniconda_version: 25.3.1
@@ -59,6 +59,8 @@ galaxy_config:
     # Main Configuration
     admin_users: 
     - mherde@pflern.uni-hannover.de
+    - krumwiede@pflern.uni-hannover.de
+    - lisa.fischer@pflern.uni-hannover.de
     database_connection: "postgresql:///{{ galaxy_db_name }}?host=/var/run/postgresql"
     file_path: /data/datasets
     job_working_directory: /data/jobs
