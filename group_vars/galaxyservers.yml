@@ -71,6 +71,11 @@ galaxy_config:
     slow_query_log_threshold: 5
     enable_per_request_sql_debugging: true
     database_engine_option_server_side_cursors: true
+    database_engine_option_pool_size: 10 # was increased because of problems
+    database_engine_option_max_overflow: 15 # was increased because of problems
+    database_wait: true # was increased because of problems
+    database_wait_attempts: 60 # was increased because of problems
+    database_wait_sleep: 30 # was increased because of problems
     # File serving Performance
     watch_job_rules: 'auto'
     allow_path_paste: true
@@ -117,7 +122,7 @@ galaxy_config:
       # listening options
       bind: "130.75.197.106:8080" # das muss entsprechend umgestellt werden der grosse Server hat 130.75.197.106:8080
       # performance options
-      workers: 12     # muss beim grossen Server auf 12 gestellt werden
+      workers: 8     # muss beim grossen Server auf 12 gestellt werden
       # Other options that will be passed to gunicorn
       # This permits setting of 'secure' headers like REMOTE_USER (and friends)
       # https://docs.gunicorn.org/en/stable/settings.html#forwarded-allow-ips
