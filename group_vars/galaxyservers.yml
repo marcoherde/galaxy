@@ -1,7 +1,7 @@
 # alle Default Konfigurationen kann man unter /galaxy/roles/galaxyproject.galaxy/defaults/main.yml eingesehen werden, das hilft Veraenderungen zu machen bzw. zu sehen was passiert wenn man nichts konfiguriert 
 galaxy_client_make_target: client-production-maps # in einer anderen Alternative kann dieser Wert auf Null (das Wort ohne Anführungszeichen) gesetzt werden
 galaxy_client_node_env: production # in einer anderen Alternative kann dieser Wert auf development (das Wort ohne Anführungszeichen) gesetzt werden
-# galaxy_client_force_build: true    # damit könnte der Client neu gebaut werden, wenn das Web nicht funktioniert, sonst wird dieser Task uebersprungen
+galaxy_client_force_build: true    # damit könnte der Client neu gebaut werden, wenn das Web nicht funktioniert, sonst wird dieser Task uebersprungen
 
 # Galaxy
 galaxy_create_user: true # False by default, as e.g. you might have a 'galaxy' user provided by LDAP or AD.
@@ -15,6 +15,10 @@ galaxy_force_checkout: true
 miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
 miniconda_version: 25.3.1
 miniconda_channels: ['conda-forge','bioconda','defaults']
+#this works to trigger the task of local tool installation, the list includes the xml files of the tools to be installed they are in the ansible folder /files/galaxy/tools
+galaxy_local_tools: ['toolExample.xml', 'toolExample_2.xml']
+
+galaxy_local_tools_src_dir: files/galaxy/tools
 
 galaxy_job_config:
   runners:
@@ -48,8 +52,26 @@ galaxy_job_config:
     - class: local # these special tools that aren't parameterized for remote execution - expression tools, upload, etc
       environment: local_env
       
+
+
+galaxy_mutable_config_templates:
+  - src: "shed_tool_conf.xml.j2"
+    dest: "{{ galaxy_config_merged[galaxy_app_config_section].migrated_tools_config }}"
+  - src: "shed_tool_conf.xml.j2"
+    dest: "{{ galaxy_shed_tool_config_file }}"
+
+
+
+galaxy_config_templates:
+  - src: templates/galaxy/config/container_resolvers_conf.yml.j2
+    dest: "{{ galaxy_config.galaxy.container_resolvers_config_file }}"
+  - src: templates/galaxy/config/dependency_resolvers_conf.xml
+    dest: "{{ galaxy_config.galaxy.dependency_resolvers_config_file }}"
+
+
 galaxy_config:
   galaxy:
+    enable_notification_system: true
     #Branding
     brand: Molekulare Pflanzenernährung und Biochemie der Pflanze
     logo_src: "https://training.galaxyproject.org/training-material/topics/admin/tutorials/customization/images/logo.png"
@@ -110,7 +132,16 @@ galaxy_config:
     allow_user_dataset_purge: true
     show_user_prepopulate_form: true
     preserve_python_environment: legacy_and_local
-       
+    # Static config files
+    tool_config_file: "{{ galaxy_tool_config_files | join(',') }}"
+    shed_tool_config_file: "{{ galaxy_shed_tool_config_file }}"
+    # to use local conda environments
+#    conda_use_local: true
+    #allows copy of envs to avoid problems
+    #Path to a file that provides a mapping from abstract packages to concrete conda packages. See config/local_conda_mapping.yml.sample for examples. The value of this option will b      		resolved with respect to <config_dir> 
+    #local_conda_mapping_file xxxxxx
+#    conda_copy_dependencies: true
+  
   gravity:
     app_server: gunicorn
     process_manager: systemd
@@ -122,7 +153,7 @@ galaxy_config:
       # listening options
       bind: "130.75.197.106:8080" # das muss entsprechend umgestellt werden der grosse Server hat 130.75.197.106:8080
       # performance options
-      workers: 8     # muss beim grossen Server auf 12 gestellt werden
+      workers: 12     # muss beim grossen Server auf 12 gestellt werden
       # Other options that will be passed to gunicorn
       # This permits setting of 'secure' headers like REMOTE_USER (and friends)
       # https://docs.gunicorn.org/en/stable/settings.html#forwarded-allow-ips
@@ -142,11 +173,6 @@ galaxy_config:
           - job-handlers
           - workflow-schedulers
    
-galaxy_config_templates:
-  - src: templates/galaxy/config/container_resolvers_conf.yml.j2
-    dest: "{{ galaxy_config.galaxy.container_resolvers_config_file }}"
-  - src: templates/galaxy/config/dependency_resolvers_conf.xml
-    dest: "{{ galaxy_config.galaxy.dependency_resolvers_config_file }}"
 
 galaxy_extra_dirs:
   - /data
@@ -164,6 +190,8 @@ galaxy_config_files_public:
 galaxy_config_files:
   - src: files/galaxy/themes.yml
     dest: "{{ galaxy_config.galaxy.themes_config_file }}"
+    
+
 
   
  
