@@ -1,0 +1,28 @@
+<tool id="ggplot_2nd_script" name="Second ggplot skript" version="0.1.0">
+    <description>Just draws some dots</description>
+    <requirements>
+    <container type="singularity">/srv/galaxy/var/cache/singularity/explicit/stat_draw_container_2</container>
+    </requirements>
+    
+    <command detect_errors="exit_code"><![CDATA[
+
+      Rscript '$__tool_directory__/more_robust_R_stat.R' "$input"
+      
+
+    ]]></command>
+    <inputs>
+      <param name="input" type="data" format="xlsx" label="An excel file is needed: first column as in the worklist generator, next columns abundance data normalized to weight. In the header the name of the metabolite. Can be as many as you like"/>
+    </inputs>
+    <outputs>
+        <collection name="splitted_fasta" type="list" label="${tool.name} on ${on_string}">
+        <discover_datasets pattern="(?P&lt;designation&gt;.*)" directory="svgs" ext="svg" visible="false"/>
+        </collection>
+        <data format="xlsx" name="output.xlsx" label="${tool.name} on ${on_string}" from_work_dir="output.xlsx"/>
+    </outputs>
+
+    <help><![CDATA[
+    Insert a list of column headers (comma-delimited) as the first row of a data table.  
+    ]]></help>
+     <citations>
+    </citations>
+</tool>

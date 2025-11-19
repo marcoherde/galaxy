@@ -1,6 +1,0 @@
- <?xml version="1.0" ?>
-<toolbox monitor="true" tool_path="{{ galaxy_local_tools_dir }}">  
- <section name="MyTools" id="mTools">
-    <tool file="myTools/toolExample.xml" />
- </section>
-</toolbox>

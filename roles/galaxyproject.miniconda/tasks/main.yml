@@ -1,36 +1,57 @@
 ---
 
-- name: Check for miniconda existence
-  stat:
-    path: "{{ miniconda_prefix }}/bin/conda"
-  register: miniconda_exists
+- name: Fail if miniconda_prefix is not defined
+  ansible.builtin.fail:
+    msg: "'miniconda_prefix' variable is required but not defined."
+  when: miniconda_prefix is not defined
 
-- name: Include install tasks
-  include_tasks: install.yml
-  when: miniconda_install and not miniconda_exists.stat.exists
+- name: Check for executable existence
+  ansible.builtin.stat:
+    path: "{{ miniconda_prefix }}/bin/{{ miniconda_executable }}"
+  register: miniconda_exec_info
 
-- name: Collect miniconda version
-  command: "{{ miniconda_prefix }}/bin/conda -V"
+- name: Install installer
+  ansible.builtin.include_tasks: install.yml
+  when: miniconda_install and not miniconda_exec_info.stat.exists
+
+- name: Collect installer version
+  ansible.builtin.command: "{{ miniconda_prefix }}/bin/{{ miniconda_executable }} --version"
   register: miniconda_installed_version
   changed_when: false
 
-- name: Update miniconda
-  include_tasks: update.yml
+- name: Install ToS packages to conda base environment
+  ansible.builtin.command: >-
+    {{ miniconda_prefix }}/bin/{{ miniconda_executable }} install --yes
+    {{ '--override-channels --channel' if (miniconda_tos_channels) else '' }}
+    {{ miniconda_tos_channels | join(' --channel ') }}
+    {{ miniconda_tos_packages | join(' ') }}
+  register: __miniconda_conda_install_conda_output
+  changed_when: "'All requested packages already installed' not in __miniconda_conda_install_conda_output.stdout"
+  when: miniconda_tos_packages | length > 0
+
+- name: Accept Anaconda Terms of Service (ToS)
+  ansible.builtin.include_tasks: tos.yml
+  when: miniconda_tos_channels | length > 0
+
+- name: Update installer
+  ansible.builtin.include_tasks: update.yml
   when: miniconda_update
 
 - name: Install packages to conda base environment
-  command: >-
-    {{ miniconda_prefix }}/bin/conda install --yes
+  ansible.builtin.command: >-
+    {{ miniconda_prefix }}/bin/{{ miniconda_executable }} install --yes
     {{ '--override-channels --channel' if (miniconda_channels) else '' }}
     {{ miniconda_channels | join(' --channel ') }}
     {{ miniconda_base_env_packages | join(' ') }}
-  when: miniconda_base_env_packages
+  register: __miniconda_conda_install_conda_output
+  changed_when: "'All requested packages already installed' not in __miniconda_conda_install_conda_output.stdout"
+  when: miniconda_base_env_packages | length > 0
 
 # Apparently item.value.copy always refers to the built-in copy method of the dict, whereas item.value['copy'] only does
 # if the key 'copy' is not defined
 - name: Create conda envs
-  command: >-
-    {{ miniconda_prefix }}/bin/conda create --yes
+  ansible.builtin.command: >-
+    {{ miniconda_prefix }}/bin/{{ miniconda_executable }} create --yes
     {{ '--override-channels --channel' if (item.value.channels | default(miniconda_channels)) else '' }}
     {{ (item.value.channels | default(miniconda_channels)) | join(' --channel ') }}
     {{ '--name ' ~ item.key if not item.key.startswith('/') else '--prefix ' ~ item.key }}
@@ -41,8 +62,8 @@
   loop: "{{ miniconda_conda_environments | dict2items }}"
 
 - name: Update conda envs
-  command: >-
-    {{ miniconda_prefix }}/bin/conda install --yes
+  ansible.builtin.command: >-
+    {{ miniconda_prefix }}/bin/{{ miniconda_executable }} install --yes
     {{ '--override-channels --channel' if (item.value.channels | default(miniconda_channels)) else '' }}
     {{ (item.value.channels | default(miniconda_channels)) | join(' --channel ') }}
     {{ '--name ' ~ item.key if not item.key.startswith('/') else '--prefix ' ~ item.key }}
@@ -53,8 +74,8 @@
   loop: "{{ miniconda_conda_environments | dict2items }}"
 
 - name: Create Galaxy conda env
-  command: >-
-    {{ miniconda_prefix }}/bin/conda create --yes
+  ansible.builtin.command: >-
+    {{ miniconda_prefix }}/bin/{{ miniconda_executable }} create --yes
     {{ '--override-channels --channel' if galaxy_conda_env_channels else '' }}
     {{ galaxy_conda_env_channels | join(' --channel ') }}
     --name {{ galaxy_conda_env }}

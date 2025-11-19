@@ -13,10 +13,17 @@ galaxy_user: {name: "{{ galaxy_user_name }}", shell: /bin/bash}
 galaxy_commit_id: release_25.0
 galaxy_force_checkout: true
 miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
-miniconda_version: 25.3.1
+miniconda_version: latest
 miniconda_channels: ['conda-forge','bioconda','defaults']
 #this works to trigger the task of local tool installation, the list includes the xml files of the tools to be installed they are in the ansible folder /files/galaxy/tools
-galaxy_local_tools: ['toolExample.xml', 'toolExample_2.xml']
+galaxy_local_tools: ['toolExample.xml', 'toolExample_2.xml','first_r.xml','2nd_r.xml']
+
+#this is now required because of conda channels need a terms of service agreement
+miniconda_tos_channels:
+   - https://repo.anaconda.com/pkgs/main
+   - https://repo.anaconda.com/pkgs/r
+
+miniconda_tos_packages: ['conda-anaconda-tos']
 
 galaxy_local_tools_src_dir: files/galaxy/tools
 
@@ -71,7 +78,6 @@ galaxy_config_templates:
 
 galaxy_config:
   galaxy:
-    enable_notification_system: true
     #Branding
     brand: Molekulare Pflanzenernährung und Biochemie der Pflanze
     logo_src: "https://training.galaxyproject.org/training-material/topics/admin/tutorials/customization/images/logo.png"
