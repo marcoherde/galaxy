@@ -6,7 +6,7 @@
     
     <command detect_errors="exit_code"><![CDATA[
 
-      Rscript '$__tool_directory__/more_robust_R_stat.R' "$input"
+      Rscript '$__tool_directory__/more_robust_R_stat_scaling.R' "$input"
       
 
     ]]></command>
