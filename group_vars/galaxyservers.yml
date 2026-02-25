@@ -44,6 +44,8 @@ galaxy_job_config:
       singularity:         #diese einstellungen bis 45 sind fuer Apptainer
         runner: local_runner
         singularity_enabled: true
+        # wichtg bei zweitem Harddrive sonst kann singularity nicht auf die Daten zugreifen
+        singularity_volumes: "$defaults,/mnt/galaxy_data/data2:rw"
         env:
         # Ensuring a consistent collation environment is good for reproducibility.
         - name: LC_ALL
